@@ -4,9 +4,9 @@ import random
 import numpy as np
 import streamlit as st
 
-from componentes.estilos import cargar_estilos
-from componentes.sidebar import render_sidebar
-from componentes.panel_resultado import render_resultado, render_anim, render_historial_stats
+from view.estilos import cargar_estilos
+from view.sidebar import render_sidebar
+from view.panel_resultado import render_resultado, render_anim, render_historial_stats
 
 st.set_page_config(
     page_title="LSC · Lengua de Señas Colombiana",
