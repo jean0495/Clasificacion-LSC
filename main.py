@@ -1,19 +1,20 @@
 import cv2
 import time
-import random
 import numpy as np
 import streamlit as st
-
-from view.estilos import cargar_estilos
-from view.sidebar import render_sidebar
-from view.panel_resultado import render_resultado, render_anim, render_historial_stats
+import streamlit.components.v1 as components
 
 st.set_page_config(
     page_title="LSC · Lengua de Señas Colombiana",
-    page_icon="",
+    page_icon="🤟",
     layout="wide",
     initial_sidebar_state="auto",
 )
+
+from frontend.view.estilos import cargar_estilos
+from frontend.view.sidebar import render_sidebar
+from frontend.view.panel_resultado import render_resultado, render_anim, render_historial_stats
+from core.predictor import cargar_predictor, predecir
 
 cargar_estilos()
 render_sidebar()
@@ -27,10 +28,10 @@ for key, val in [
         st.session_state[key] = val
 
 UMBRAL_FELIZ = 0.95
-VOCALES = ["A", "E", "I", "O", "U"]
 
-def predecir_simulado(frame: np.ndarray) -> tuple[str, float]:
-    return random.choice(VOCALES), round(random.uniform(0.70, 0.99), 2)
+@st.cache_resource
+def get_predictor():
+    return cargar_predictor()
 
 # ── Encabezado ───────────────────────────────────────────────────────────────
 c1, c2 = st.columns([5, 1])
@@ -48,6 +49,26 @@ col_cam, col_der = st.columns([1.4, 1], gap="medium")
 with col_cam:
     st.markdown('<div class="sec-label">cámara en vivo</div>', unsafe_allow_html=True)
     frame_placeholder = st.empty()
+
+    # Captura con ESPACIO via JavaScript
+    components.html("""
+    <script>
+        window.parent.document.addEventListener('keydown', function(e) {
+            if (e.code === 'Space') {
+                e.preventDefault();
+                const btns = window.parent.document.querySelectorAll('button');
+                btns.forEach(function(btn) {
+                    if (btn.innerText.includes('Capturar')) {
+                        btn.click();
+                    }
+                });
+            }
+        });
+    </script>
+    """, height=0)
+
+    st.markdown('<div style="color:#5a5a7a;font-size:0.82rem;text-align:center;padding:6px 0">Presiona <kbd style="background:#1a1a2a;border:1px solid #2a2a3a;border-radius:4px;padding:2px 8px;color:#c4bcff;font-family:monospace">ESPACIO</kbd> para capturar</div>', unsafe_allow_html=True)
+
     if st.button("📸 Capturar seña"):
         st.session_state.captura_pendiente = True
 
@@ -77,11 +98,16 @@ if not cap.isOpened():
 else:
     try:
         while True:
+            for _ in range(3):
+                cap.grab()
+
             ret, frame = cap.read()
-            if not ret:
-                break
+            if not ret or frame is None:
+                time.sleep(0.1)
+                continue
 
             frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            frame_rgb = cv2.resize(frame_rgb, (640, 480))
             h, w = frame_rgb.shape[:2]
             cx, cy, box = w // 2, h // 2, 160
             cv2.rectangle(frame_rgb, (cx-box, cy-box), (cx+box, cy+box), (124, 106, 245), 2)
@@ -98,7 +124,9 @@ else:
                 render_historial_stats(historial_ph, stats_ph)
 
             if st.session_state.captura_pendiente:
-                seña, conf = predecir_simulado(frame_rgb)
+                recorte = frame_rgb[cy-box:cy+box, cx-box:cx+box]
+                model, clases = get_predictor()
+                seña, conf = predecir(model, clases, recorte)
                 st.session_state.ultima_seña = seña
                 st.session_state.ultima_conf = conf
                 st.session_state.historial.append(seña)

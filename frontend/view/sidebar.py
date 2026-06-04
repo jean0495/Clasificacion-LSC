@@ -24,5 +24,5 @@ def render_sidebar():
         </div>
         """, unsafe_allow_html=True)
         st.markdown("---")
-        if st.button("🗑️ Limpiar historial"):
+        if st.button(" Limpiar historial"):
             st.session_state.limpiar_pendiente = True
