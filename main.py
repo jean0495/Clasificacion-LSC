@@ -21,13 +21,12 @@ render_sidebar()
 
 # ── Estado ───────────────────────────────────────────────────────────────────
 for key, val in [
-    ("historial", []), ("ultima_seña", None), ("ultima_conf", None),
-    ("ultima_anim", None), ("captura_pendiente", False), ("limpiar_pendiente", False),
+    ("historial", []), ("ultima_seña", None),
+    ("ultima_anim", None), ("captura_pendiente", False),
+    ("limpiar_pendiente", False), ("necesita_render", False),
 ]:
     if key not in st.session_state:
         st.session_state[key] = val
-
-UMBRAL_FELIZ = 0.95
 
 @st.cache_resource
 def get_predictor():
@@ -50,7 +49,6 @@ with col_cam:
     st.markdown('<div class="sec-label">cámara en vivo</div>', unsafe_allow_html=True)
     frame_placeholder = st.empty()
 
-    # Captura con ESPACIO via JavaScript
     components.html("""
     <script>
         window.parent.document.addEventListener('keydown', function(e) {
@@ -76,7 +74,6 @@ with col_der:
     st.markdown('<div class="sec-label">resultado</div>', unsafe_allow_html=True)
     resultado_ph = st.empty()
     chips_ph     = st.empty()
-    progreso_ph  = st.empty()
     anim_ph      = st.empty()
     st.markdown("<div style='margin-top:12px'></div>", unsafe_allow_html=True)
     st.markdown('<div class="sec-label">historial de sesión</div>', unsafe_allow_html=True)
@@ -86,21 +83,19 @@ with col_der:
     stats_ph     = st.empty()
 
 # ── Render inicial ────────────────────────────────────────────────────────────
-render_resultado(resultado_ph, chips_ph, progreso_ph)
+render_resultado(resultado_ph, chips_ph)
 render_anim(anim_ph)
 render_historial_stats(historial_ph, stats_ph)
 
 # ── Loop cámara ───────────────────────────────────────────────────────────────
 cap = cv2.VideoCapture(0)
+cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
 
 if not cap.isOpened():
     st.error("No se pudo acceder a la cámara.")
 else:
     try:
         while True:
-            for _ in range(3):
-                cap.grab()
-
             ret, frame = cap.read()
             if not ret or frame is None:
                 time.sleep(0.1)
@@ -116,25 +111,26 @@ else:
             frame_placeholder.image(frame_rgb, channels="RGB", use_container_width=True)
 
             if st.session_state.limpiar_pendiente:
-                for key in ["historial", "ultima_seña", "ultima_conf", "ultima_anim"]:
+                for key in ["historial", "ultima_seña", "ultima_anim"]:
                     st.session_state[key] = [] if key == "historial" else None
                 st.session_state.limpiar_pendiente = False
-                render_resultado(resultado_ph, chips_ph, progreso_ph)
-                render_anim(anim_ph)
-                render_historial_stats(historial_ph, stats_ph)
+                st.session_state.necesita_render = True
 
             if st.session_state.captura_pendiente:
                 recorte = frame_rgb[cy-box:cy+box, cx-box:cx+box]
                 model, clases = get_predictor()
-                seña, conf = predecir(model, clases, recorte)
+                seña = predecir(model, clases, recorte)
                 st.session_state.ultima_seña = seña
-                st.session_state.ultima_conf = conf
                 st.session_state.historial.append(seña)
-                st.session_state.ultima_anim = "feliz" if conf >= UMBRAL_FELIZ else "triste"
+                st.session_state.ultima_anim = "feliz"
                 st.session_state.captura_pendiente = False
-                render_resultado(resultado_ph, chips_ph, progreso_ph)
+                st.session_state.necesita_render = True
+
+            if st.session_state.necesita_render:
+                render_resultado(resultado_ph, chips_ph)
                 render_anim(anim_ph)
                 render_historial_stats(historial_ph, stats_ph)
+                st.session_state.necesita_render = False
 
             time.sleep(0.03)
     finally:
