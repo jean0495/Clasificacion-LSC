@@ -12,11 +12,12 @@ def cargar_predictor():
     model.eval()
     return model, config["clases"]
 
-def predecir(model, clases: list, frame_rgb: np.ndarray) -> str:
+def predecir(model, clases: list, frame_rgb: np.ndarray) -> tuple[str, float]:
     model.eval()
     tensor = preprocesar_frame(frame_rgb)
     with torch.no_grad():
         logits = model(tensor)
         probs  = torch.softmax(logits, dim=1)
-    idx = probs.argmax().item()
-    return clases[idx].strip().lower()
+    idx       = probs.argmax().item()
+    confianza = probs[0, idx].item()
+    return clases[idx].strip().lower(), round(confianza, 4)

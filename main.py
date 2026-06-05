@@ -110,6 +110,23 @@ else:
                         cv2.FONT_HERSHEY_SIMPLEX, 0.5, (124, 106, 245), 1)
             frame_placeholder.image(frame_rgb, channels="RGB", use_container_width=True)
 
+            UMBRAL_MINIMO = 0.90
+            if st.session_state.captura_pendiente:
+                recorte = frame_rgb[cy-box:cy+box, cx-box:cx+box]
+                model, clases = get_predictor()
+                seña, conf = predecir(model, clases, recorte)
+
+                if conf >= UMBRAL_MINIMO:
+                    st.session_state.ultima_seña = seña
+                    st.session_state.historial.append(seña)
+                    st.session_state.ultima_anim = "feliz"
+                else: 
+                    st.session_state.ultima_seña = None
+                    st.session_state.ultima_anim = "triste"
+                  
+                st.session_state.captura_pendiente = False
+                st.session_state.necesita_render = True
+
             if st.session_state.limpiar_pendiente:
                 for key in ["historial", "ultima_seña", "ultima_anim"]:
                     st.session_state[key] = [] if key == "historial" else None
