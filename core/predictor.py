@@ -19,4 +19,4 @@ def predecir(model, clases: list, frame_rgb: np.ndarray) -> str:
         logits = model(tensor)
         probs  = torch.softmax(logits, dim=1)
     idx = probs.argmax().item()
-    return clases[idx]
+    return clases[idx].strip().lower()

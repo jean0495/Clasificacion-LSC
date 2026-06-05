@@ -10,6 +10,7 @@ CONFETTI_POSITIONS = [
 
 def render_resultado(resultado_placeholder, chips_placeholder):
     seña = st.session_state.ultima_seña
+    seña = seña.strip().lower() if seña else None
     letra = seña.upper() if seña else "—"
     nombre = NOMBRES.get(seña, "") if seña else "Captura una seña para comenzar"
 
